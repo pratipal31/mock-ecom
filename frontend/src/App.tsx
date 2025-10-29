@@ -1,116 +1,91 @@
-import React, { useState } from "react";
-import { ShoppingBag, Check, ShoppingCart } from "lucide-react";
+import { useEffect, useState } from "react";
 import ProductList from "./components/ProductList";
 import Cart from "./components/Cart";
 import CheckoutModal from "./components/CheckoutModal";
-import type { CartItem, Product, Receipt } from "./types";
+import type { Product, CartItem, Receipt } from "./types";
 
-const App: React.FC = () => {
-  const [cart, setCart] = useState<CartItem[]>([]);
+export default function App() {
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
 
-  const products: Product[] = [
-    { id: "1", name: "Aloo Paratha", price: 80 },
-    { id: "2", name: "Paneer Butter Masala", price: 180 },
-    { id: "3", name: "Chicken Biryani", price: 220 },
-    { id: "4", name: "Dosa", price: 100 },
-    { id: "5", name: "Pasta Primavera", price: 150 },
-    { id: "6", name: "Butter Chicken", price: 240 },
-  ];
-
-  const handleAddToCart = (product: Product) => {
-    const existing = cart.find((item) => item.id === product.id);
-    let updatedCart: CartItem[];
-
-    if (existing) {
-      updatedCart = cart.map((item) =>
-        item.id === product.id ? { ...item, qty: item.qty + 1 } : item
-      );
-    } else {
-      updatedCart = [...cart, { ...product, qty: 1 }];
+  // Fetch cart from backend
+  const fetchCart = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/cart");
+      const data = await res.json();
+      setCartItems(data.items);
+    } catch (err) {
+      console.error("Error fetching cart:", err);
     }
-
-    setCart(updatedCart);
   };
 
-  const handleRemove = (id: string) => {
-    setCart(cart.filter((item) => item.id !== id));
+  // Add product to cart
+  const handleAddToCart = async (product: Product) => {
+    try {
+      await fetch("http://localhost:5000/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id, qty: 1 }),
+      });
+      fetchCart(); // refresh cart
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+    }
   };
 
-  const handleUpdateQty = (id: string, delta: number) => {
-    setCart(
-      cart.map((item) =>
-        item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item
-      )
-    );
-  };
-
+  // Checkout success handler
   const handleCheckoutSuccess = (data: Receipt) => {
     setReceipt(data);
-    setCart([]);
+    setCartItems([]);
     setShowCheckout(false);
-    setTimeout(() => setReceipt(null), 5000);
   };
 
-  const cartItemCount = cart.reduce((sum, item) => sum + item.qty, 0);
+  useEffect(() => {
+    fetchCart();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-      <header className="bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ShoppingBag size={32} />
-              <h1 className="text-3xl font-bold">FoodieCart</h1>
-            </div>
-            <div className="flex items-center gap-2 bg-white bg-opacity-20 px-4 py-2 rounded-full">
-              <ShoppingCart size={20} />
-              <span className="font-semibold text-black">{cartItemCount}</span>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-purple-50 p-6">
+      <header className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-purple-700">🛒 Mock E-Com Cart</h1>
+        <p className="text-gray-600">Add, remove, and checkout mock products</p>
       </header>
 
-      <ProductList products={products} onAddToCart={handleAddToCart} />
-      
-      {cart.length > 0 && (
-        <Cart
-          cart={cart}
-          onRemove={handleRemove}
-          onUpdateQty={handleUpdateQty}
-          onCheckout={() => setShowCheckout(true)}
-        />
-      )}
+      <main className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
+        <div className="md:col-span-2">
+          <ProductList onAddToCart={handleAddToCart} />
+        </div>
+        <div>
+          <Cart onCheckout={() => setShowCheckout(true)} />
+        </div>
+      </main>
 
+      {/* Checkout modal */}
       {showCheckout && (
         <CheckoutModal
-          cart={cart}
+          cartItems={cartItems}
           onClose={() => setShowCheckout(false)}
           onSuccess={handleCheckoutSuccess}
         />
       )}
 
+      {/* Receipt Modal */}
       {receipt && (
-        <div className="fixed bottom-6 right-6 bg-green-500 text-white p-6 rounded-xl shadow-2xl max-w-sm z-50">
-          <div className="flex items-start gap-3">
-            <div className="bg-white rounded-full p-2">
-              <Check className="text-green-500" size={24} />
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-1">Order Confirmed! 🎉</h3>
-              <p className="text-green-100 text-sm">
-                Total: ₹{receipt.total}
-              </p>
-              <p className="text-green-100 text-xs mt-1">
-                {new Date(receipt.timestamp).toLocaleString()}
-              </p>
-            </div>
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-lg w-96">
+            <h2 className="text-xl font-semibold mb-4">Receipt</h2>
+            <p>Total: ₹{receipt.total}</p>
+            <p>Date: {new Date(receipt.timestamp).toLocaleString()}</p>
+            <button
+              className="mt-4 bg-purple-600 text-white px-4 py-2 rounded-md"
+              onClick={() => setReceipt(null)}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-export default App;
+}
