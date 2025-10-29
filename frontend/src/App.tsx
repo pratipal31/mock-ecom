@@ -66,7 +66,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 bg-white bg-opacity-20 px-4 py-2 rounded-full">
               <ShoppingCart size={20} />
-              <span className="font-semibold">{cartItemCount}</span>
+              <span className="font-semibold text-black">{cartItemCount}</span>
             </div>
           </div>
         </div>
