@@ -30,10 +30,21 @@ function createTablesAndSeed() {
       category TEXT
     );
   `;
+   const createCart = `
+    CREATE TABLE IF NOT EXISTS cart (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      productId INTEGER,
+      qty INTEGER DEFAULT 1,
+      FOREIGN KEY(productId) REFERENCES products2(id)
+    );
+  `;
 
   db.serialize(() => {
     db.run(createProductsTable, (err) => {
       if (err) console.error('Error creating products2 table:', err);
+    });
+    db.run(createCart, (err) => {
+      if (err) console.error('Error creating cart table:', err);
     });
 
     // Check if table is empty before inserting

@@ -1,3 +1,4 @@
+// src/components/ProductsCard.tsx
 import React, { useEffect, useState } from 'react';
 import { ShoppingCart, Plus, Minus, Heart, Star } from 'lucide-react';
 import { useCart } from './CartContext';
@@ -26,16 +27,20 @@ const ProductsCard = () => {
     fetchProducts();
   }, []);
 
-  const handleAddToCart = (product: Product) => addToCart(product);
-
-  const handleIncrement = (product: Product) => {
-    const currentQty = getItemQuantity(product.id);
-    updateQuantity(product.id, currentQty + 1);
+  const handleAddToCart = async (product: Product) => {
+    await addToCart(product);
   };
 
-  const handleDecrement = (product: Product) => {
+  const handleIncrement = async (product: Product) => {
     const currentQty = getItemQuantity(product.id);
-    if (currentQty > 0) updateQuantity(product.id, currentQty - 1);
+    await updateQuantity(product.id, currentQty + 1);
+  };
+
+  const handleDecrement = async (product: Product) => {
+    const currentQty = getItemQuantity(product.id);
+    if (currentQty > 0) {
+      await updateQuantity(product.id, currentQty - 1);
+    }
   };
 
   const toggleFavorite = (id: number) => {
@@ -117,7 +122,7 @@ const ProductsCard = () => {
                   {/* Price */}
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-2xl font-bold text-gray-900">
-                      ${product.price}
+                      ${product.price.toFixed(2)}
                     </span>
                   </div>
 

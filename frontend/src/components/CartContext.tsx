@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+// src/components/CartContext.tsx
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-// Types
 export interface Product {
   id: number;
   name: string;
@@ -11,73 +11,114 @@ export interface Product {
   category: string;
 }
 
-export interface CartItem extends Product {
-  quantity: number;
+export interface CartItem {
+  id: number;           // cart item id
+  productId: number;    // product id
+  qty: number;          // quantity
+  name: string;         // from products table
+  price: number;        // from products table
+  image: string;        // from products table
+  category: string;     // from products table
 }
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (product: Product) => void;
-  removeFromCart: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
-  clearCart: () => void;
+  addToCart: (product: Product) => Promise<void>;
+  removeFromCart: (cartItemId: number) => Promise<void>;
+  updateQuantity: (productId: number, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   getTotalItems: () => number;
   getTotalPrice: () => number;
-  getItemQuantity: (id: number) => number;
+  getItemQuantity: (productId: number) => number;
+  refreshCart: () => Promise<void>;
 }
 
-// Create Context
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-// Cart Provider Component
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  const addToCart = (product: Product) => {
-    setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
+  const API_URL = 'http://localhost:5000/api/cart';
+
+  // Fetch cart on load
+  const refreshCart = async () => {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setCartItems(data);
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+    }
   };
 
-  const removeFromCart = (id: number) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  useEffect(() => {
+    refreshCart();
+  }, []);
+
+  // Add or update cart item
+  const addToCart = async (product: Product) => {
+    try {
+      const existingItem = cartItems.find(item => item.productId === product.id);
+      const newQty = existingItem ? existingItem.qty + 1 : 1;
+
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id, qty: newQty }),
+      });
+      await refreshCart();
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
   };
 
-  const updateQuantity = (id: number, quantity: number) => {
+  // Update quantity
+  const updateQuantity = async (productId: number, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(id);
+      // Find cart item by productId and remove it
+      const cartItem = cartItems.find(item => item.productId === productId);
+      if (cartItem) {
+        await removeFromCart(cartItem.id);
+      }
       return;
     }
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, quantity } : item
-      )
-    );
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, qty: quantity }),
+      });
+      await refreshCart();
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+    }
   };
 
-  const clearCart = () => {
-    setCartItems([]);
+  // Remove item (using cart item id, not product id)
+  const removeFromCart = async (cartItemId: number) => {
+    try {
+      await fetch(`${API_URL}/${cartItemId}`, { method: 'DELETE' });
+      await refreshCart();
+    } catch (error) {
+      console.error('Error removing item:', error);
+    }
   };
 
-  const getTotalItems = () => {
-    return cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // Clear cart
+  const clearCart = async () => {
+    try {
+      await fetch(API_URL, { method: 'DELETE' });
+      setCartItems([]);
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+    }
   };
 
-  const getTotalPrice = () => {
-    return cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  };
-
-  const getItemQuantity = (id: number) => {
-    const item = cartItems.find(item => item.id === id);
-    return item ? item.quantity : 0;
+  const getTotalItems = () => cartItems.reduce((sum, item) => sum + item.qty, 0);
+  const getTotalPrice = () => cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const getItemQuantity = (productId: number) => {
+    const item = cartItems.find(item => item.productId === productId);
+    return item ? item.qty : 0;
   };
 
   return (
@@ -91,6 +132,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         getTotalItems,
         getTotalPrice,
         getItemQuantity,
+        refreshCart,
       }}
     >
       {children}
@@ -98,11 +140,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Hook to use Cart
 export const useCart = () => {
   const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within CartProvider');
-  }
+  if (!context) throw new Error('useCart must be used within CartProvider');
   return context;
 };

@@ -1,5 +1,6 @@
+// src/components/Navbar.tsx
 import React from 'react';
-import { ShoppingCart, Search, Heart, User, Home, Package } from 'lucide-react';
+import { ShoppingCart, Search, User, Home, Package } from 'lucide-react';
 import { useCart } from './CartContext';
 
 interface NavbarProps {
@@ -62,8 +63,8 @@ const Navbar = ({ onCartClick, onProductsClick }: NavbarProps) => {
             >
               <ShoppingCart className="h-5 w-5" />
               {totalItems > 0 && (
-                <span className="absolute top-0 right-0 bg-gray-800 text-white text-xs font-semibold rounded-full h-4 w-4 flex items-center justify-center">
-                  {totalItems}
+                <span className="absolute -top-1 -right-1 bg-gray-800 text-white text-xs font-semibold rounded-full h-5 w-5 flex items-center justify-center">
+                  {totalItems > 99 ? '99+' : totalItems}
                 </span>
               )}
             </button>
