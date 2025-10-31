@@ -127,6 +127,69 @@ app.delete('/api/cart', (req, res) => {
     res.json({ message: 'Cart cleared successfully' });
   });
 });
+
+/* -------------------- CHECKOUT ROUTE -------------------- */
+
+// ✅ POST: Process checkout and generate receipt
+app.post('/api/checkout', (req, res) => {
+  const db = getDb();
+  
+  // Fetch current cart items with product details
+  const query = `
+    SELECT cart.id, cart.productId, cart.qty,
+           p.name, p.price, p.image, p.category
+    FROM cart
+    JOIN products2 p ON cart.productId = p.id;
+  `;
+  
+  db.all(query, (err, cartItems) => {
+    if (err) {
+      console.error('Error fetching cart for checkout:', err.message);
+      return res.status(500).json({ error: 'Failed to process checkout' });
+    }
+
+    if (cartItems.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    // Calculate totals
+    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const tax = subtotal * 0.1; // 10% tax
+    const total = subtotal + tax;
+
+    // Generate receipt
+    const receipt = {
+      orderId: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+      timestamp: new Date().toISOString(),
+      date: new Date().toLocaleString(),
+      items: cartItems.map(item => ({
+        productId: item.productId,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        quantity: item.qty,
+        itemTotal: item.price * item.qty
+      })),
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      tax: parseFloat(tax.toFixed(2)),
+      total: parseFloat(total.toFixed(2)),
+      itemCount: cartItems.reduce((sum, item) => sum + item.qty, 0),
+      status: 'completed'
+    };
+
+    // Clear cart after successful checkout
+    db.run('DELETE FROM cart', (clearErr) => {
+      if (clearErr) {
+        console.error('Error clearing cart after checkout:', clearErr.message);
+        // Still return receipt even if cart clear fails
+      }
+      
+      console.log('✅ Checkout processed:', receipt.orderId);
+      res.status(200).json(receipt);
+    });
+  });
+});
+
 // ✅ Default route (health check)
 app.get('/', (req, res) => {
   res.send('✅ Backend is running and connected to SQLite (products2 table)!');

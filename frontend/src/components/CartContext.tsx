@@ -21,6 +21,25 @@ export interface CartItem {
   category: string;     // from products table
 }
 
+export interface CheckoutReceipt {
+  orderId: string;
+  timestamp: string;
+  date: string;
+  items: {
+    productId: number;
+    name: string;
+    category: string;
+    price: number;
+    quantity: number;
+    itemTotal: number;
+  }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  itemCount: number;
+  status: string;
+}
+
 interface CartContextType {
   cartItems: CartItem[];
   addToCart: (product: Product) => Promise<void>;
@@ -31,6 +50,7 @@ interface CartContextType {
   getTotalPrice: () => number;
   getItemQuantity: (productId: number) => number;
   refreshCart: () => Promise<void>;
+  checkout: () => Promise<CheckoutReceipt | null>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -39,6 +59,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const API_URL = 'http://localhost:5000/api/cart';
+  const CHECKOUT_URL = 'http://localhost:5000/api/checkout';
 
   // Fetch cart on load
   const refreshCart = async () => {
@@ -114,6 +135,28 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Checkout
+  const checkout = async (): Promise<CheckoutReceipt | null> => {
+    try {
+      const res = await fetch(CHECKOUT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Checkout failed');
+      }
+
+      const receipt = await res.json();
+      setCartItems([]); // Clear local cart state
+      return receipt;
+    } catch (error) {
+      console.error('Error during checkout:', error);
+      return null;
+    }
+  };
+
   const getTotalItems = () => cartItems.reduce((sum, item) => sum + item.qty, 0);
   const getTotalPrice = () => cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const getItemQuantity = (productId: number) => {
@@ -133,6 +176,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         getTotalPrice,
         getItemQuantity,
         refreshCart,
+        checkout,
       }}
     >
       {children}
